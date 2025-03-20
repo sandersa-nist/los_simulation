@@ -32,7 +32,7 @@ Issues = "https://github.com/sandersa/los-simulation/issues"
 Source = "https://github.com/sandersa/los-simulation"
 
 [tool.setuptools.package-data]
-los_simulation = ["resources/*"]
+los_simulation = ["los_simulation/resources/*"]
 
 [tool.hatch.version]
 path = "los_simulation/__about__.py"
@@ -53,7 +53,7 @@ omit = [
 ]
 
 [tool.coverage.paths]
-los_simulation = ["los_simulation", "*/los-simulation/los_simulation","resources","*/los_simulation/resources"]
+los_simulation = ["los_simulation", "*/los-simulation/los_simulation"]
 tests = ["tests", "*/los-simulation/tests"]
 
 [tool.coverage.report]

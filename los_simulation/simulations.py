@@ -11,6 +11,7 @@
 # Standard Imports
 import sys
 import os
+from importlib import resources
 
 # -----------------------------------------------------------------------------
 # Third Party Imports
@@ -22,9 +23,13 @@ from matplotlib.ticker import EngFormatter
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from scipy import ndimage
 from matplotlib.gridspec import GridSpec
-
 # -----------------------------------------------------------------------------
 # Module Constants
+PARENT_DIRECTORY = os.path.dirname( __file__ )
+TOWER_IMAGE_PATH = os.path.join(PARENT_DIRECTORY,"resources","tower.png")
+WIFI_IMAGE_PATH = os.path.join(PARENT_DIRECTORY,"resources","wifi.png")
+DISH_IMAGE_PATH = os.path.join(PARENT_DIRECTORY,"resources","dish.png")
+
 # -----------------------------------------------------------------------------
 # Module Functions
 def simple_directional_gain(theta_array,theta1=-(np.pi/180)*30,theta2=(np.pi/180)*30,gain1=9,gain2=-100): 
@@ -148,7 +153,7 @@ def fig2data(figure):
     buffer = np.roll(buffer, 3, axis=2)
     return buffer
 
-def create_tower_glyph(percentage,rx_names=None,format_1={"color":"r"},format_2={"color":"b"},figsize = (5,5),fontsize =18,base_image = "./resources/tower.png"):
+def create_tower_glyph(percentage,rx_names=None,format_1={"color":"r"},format_2={"color":"b"},figsize = (5,5),fontsize =18,base_image = TOWER_IMAGE_PATH):
     """Creates a tower glyph with a percentage bar underneath, if percentage is a list then it auto adds bars"""
     if isinstance(percentage,(list,np.ndarray)):
         number_bars = len(percentage)
@@ -265,7 +270,8 @@ def plot_antenna_functions(antenna_functions=[omni,simple_directional_gain,
 
 def show_tower_glyph():
     """Shows the tower glyph"""
-    im =create_tower_glyph([.5,.25],["Omni","Directional"],format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"*"}],format_2=[{"color":"b"},{"color":"y"}],fontsize=10,base_image="./resources/wifi.png")
+    im =create_tower_glyph([.5,.25],["Omni","Directional"],format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"*"}],
+                           format_2=[{"color":"b"},{"color":"y"}],fontsize=10,base_image=WIFI_IMAGE_PATH)
     plt.imshow(im)
     plt.axis("off")
     plt.show()
@@ -408,7 +414,7 @@ def create_scenario_3():
         #ax.quiver(rx.location[0],rx.location[1], rx.direction[0], rx.direction[1], color='r')
         if rx.antenna_pattern != omni:
             relative_angle = -180/np.pi*calculate_relative_angle(1,0,*rx.direction)
-            image = plt.imread("./resources/dish.png")
+            image = plt.imread(DISH_IMAGE_PATH)
             rotated_image = ndimage.rotate(image, angle=relative_angle)         
             imagebox = OffsetImage(rotated_image, zoom=0.03)
             imagebox.image.axes = ax
@@ -419,7 +425,7 @@ def create_scenario_3():
 
 
     for tx in txs:
-            imagebox = OffsetImage(plt.imread("./resources/tower.png"), zoom=0.2)
+            imagebox = OffsetImage(plt.imread(TOWER_IMAGE_PATH), zoom=0.2)
             imagebox.image.axes = ax
             ab = AnnotationBbox(imagebox,tx.location, frameon=False)
             ax.add_artist(ab)
@@ -486,7 +492,7 @@ def create_scenario_4():
                     ax.plot(*rx.location,"rD",alpha=0)
                     if rx.antenna_pattern != omni:
                             relative_angle = -180/np.pi*calculate_relative_angle(1,0,*rx.direction)
-                            image = plt.imread("./resources/dish.png")
+                            image = plt.imread(DISH_IMAGE_PATH)
                             rotated_image = ndimage.rotate(image, angle=-90-relative_angle)         
                             imagebox = OffsetImage(rotated_image, zoom=0.03)
                             imagebox.image.axes = ax
@@ -516,7 +522,7 @@ def create_scenario_4():
                             xy=(-r_tower_max,-r_tower_max-r_tower_max/5), xycoords='data',
                             xytext=(5, -10), textcoords='offset points',color="k",bbox=dict(facecolor='w', alpha=0.5))
             for tx_index,tx in enumerate(txs):
-                    im = create_tower_glyph([percentage_rx1[tx_index],percentage_rx2[tx_index]],format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=10,base_image="./resources/wifi.png")
+                    im = create_tower_glyph([percentage_rx1[tx_index],percentage_rx2[tx_index]],format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=10,base_image=WIFI_IMAGE_PATH)
                     plt.close()
                     imagebox = OffsetImage(im, zoom=0.05)
                     imagebox.image.axes = ax
@@ -527,14 +533,14 @@ def create_scenario_4():
             ax1  = fig.add_subplot(gs[0,4])
             ax1.set_axis_off()
             im_= create_tower_glyph([percentage_rx1[np.argmax(power_list_rx1)],percentage_rx2[np.argmax(power_list_rx1)]],["RX1","RX2"],
-                                    format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=22,base_image="./resources/wifi.png");
+                                    format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=22,base_image=WIFI_IMAGE_PATH);
             plt.close()
             ax1.imshow(im_)
             ax1.set_title(f"Max of Omni")
             ax2  = fig.add_subplot(gs[1,4])
             ax2.set_axis_off()
             im_= create_tower_glyph([percentage_rx1[np.argmax(power_list_rx2)],percentage_rx2[np.argmax(power_list_rx2)]],["RX1","RX2"],
-                                    format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=22,base_image="./resources/wifi.png");
+                                    format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=22,base_image=WIFI_IMAGE_PATH);
             plt.close()
             ax2.imshow(im_)
             ax2.set_title(f"Max of Directional")
