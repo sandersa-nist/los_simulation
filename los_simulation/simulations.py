@@ -21,7 +21,7 @@ import matplotlib.patches as patches
 from matplotlib.ticker import EngFormatter
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from scipy import ndimage
-
+from matplotlib.gridspec import GridSpec
 
 # -----------------------------------------------------------------------------
 # Module Constants
@@ -140,6 +140,71 @@ def node_to_node_loss(node1,node2,wavelength = 299792458/3.75e9):
     loss = gain_rx+ gain_tx + 20*np.log10(wavelength/(4*np.pi*distance))
     return loss
 
+def fig2data(figure):
+    figure.canvas.draw()
+    w, h = figure.canvas.get_width_height()
+    buffer = np.frombuffer(figure.canvas.tostring_argb(), dtype=np.uint8)
+    buffer.shape = (w, h, 4)
+    buffer = np.roll(buffer, 3, axis=2)
+    return buffer
+
+def create_tower_glyph(percentage,rx_names=None,format_1={"color":"r"},format_2={"color":"b"},figsize = (5,5),fontsize =18,base_image = "./resources/tower.png"):
+    """Creates a tower glyph with a percentage bar underneath, if percentage is a list then it auto adds bars"""
+    if isinstance(percentage,(list,np.ndarray)):
+        number_bars = len(percentage)
+    else:
+        number_bars = 1
+                  
+    fig = plt.figure( figsize=(5,5),layout='constrained')
+    gs  = GridSpec(5+number_bars,1) 
+    ax1 = fig.add_subplot(gs[0:5,0:])
+
+    ax1.imshow(plt.imread(base_image))
+    ax1.set_axis_off()
+    if isinstance(percentage,(list,np.ndarray)):
+        for i in range(number_bars):
+            if rx_names:
+                name = rx_names[i]
+            else:
+                name = "A"
+            if isinstance(format_1,list):
+                format_1_  =format_1[i]
+                format_2_ =format_2[i]
+            else:
+                format_1_  =format_1
+                format_2_  =format_2
+            bar_ax = fig.add_subplot(gs[5+i,0:])
+            print(i)    
+            bar_ax.barh([name],[percentage[i]],**format_1_)
+            bar_ax.barh([name],[1-percentage[i]],left = percentage[i],**format_2_)
+            bar_ax.set_xticks([])
+            bar_ax.set_yticks([])
+            bar_ax.set_xlim([0,1])
+            if rx_names:
+                bar_ax.set_ylabel(name,fontsize=fontsize)
+    else:
+        if rx_names:
+            name = rx_names
+        else:
+            name = "A"
+        if isinstance(format_1,list):
+            format_1_  =format_1[i]
+            format_2_ =format_2[i]
+        else:
+            format_1_  =format_1
+            format_2_  =format_2
+        bar_ax = fig.add_subplot(gs[5,0:])    
+        bar_ax.barh([name],[percentage],**format_1_)
+        bar_ax.barh([name],[ 1-percentage],left = percentage,**format_2_)
+        bar_ax.set_xticks([])
+        bar_ax.set_yticks([])
+        bar_ax.set_xlim([0,1])
+        if rx_names:
+            bar_ax.set_ylabel(name,fontsize=fontsize)
+    fig.patch.set_alpha(0)
+
+    plt.tight_layout()
+    return fig2data(figure=fig)
 # -----------------------------------------------------------------------------
 # Module Classes
 class Node():
@@ -193,9 +258,314 @@ def plot_antenna_functions(antenna_functions=[omni,simple_directional_gain,
             ax.plot(theta,func(theta),label = func.__name__)
         except:
             pass
-    ax.legend()
+    ax.legend(loc='lower left', bbox_to_anchor=(1, 1))
+    plt.tight_layout()
+
+    plt.show()
+
+def show_tower_glyph():
+    """Shows the tower glyph"""
+    im =create_tower_glyph([.5,.25],["Omni","Directional"],format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"*"}],format_2=[{"color":"b"},{"color":"y"}],fontsize=10,base_image="./resources/wifi.png")
+    plt.imshow(im)
+    plt.axis("off")
+    plt.show()
+
+def create_scenario_1():
+    number_tx = 10
+    mean_tx_spacing = 1000
+    rx1 = RxNode([1,1],[0,0],antenna_pattern=omni,id="omni")
+    rx2 = RxNode([1,1],[0,0],antenna_pattern=simple_directional_gain,id="directional")
+    rxs  = [rx1,rx2]
+    txs = []
+    for i in range(number_tx):
+        direction = [0,1]
+        location = [mean_tx_spacing*np.random.uniform(low=-1, high=1),mean_tx_spacing*np.random.uniform(low=-1, high=1)]
+        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=76)
+        txs.append(new_tx)
+    fig,ax = plt.subplots()
+    for rx in rxs:
+        ax.plot(*rx.location,"rD")
+        ax.quiver(rx.location[0],rx.location[1], rx.direction[0], rx.direction[1], color='r')
+    for tx in txs:
+            ax.plot(*tx.location,"gs")
+            ax.quiver(tx.location[0],tx.location[1], tx.direction[0], tx.direction[1], color='g')
+            ax.add_patch(patches.Circle(xy=tx.location,radius=100,color='g',alpha=1,fill=False))
+    plt.grid()
+    power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x),txs)))
+    power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x),txs)))
+    total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
+    total_power_rx2 = 10*np.log10(np.sum(10**(power_list_rx2/10)))
+    max_rx1 = txs[np.argmax(power_list_rx1)]
+    plt.plot(max_rx1.location[0],max_rx1.location[1],"k.",markersize=22)
+    max_rx2 = txs[np.argmax(power_list_rx2)]
+    ax = plt.gca()
+    ax.annotate(f"max of {rx1.id}",
+                    xy=(max_rx1.location[0], max_rx1.location[1]), xycoords='data',
+                    xytext=(1.5, 1.5), textcoords='offset points')
+    ax.annotate(f"max of {rx2.id}",
+                    xy=(max_rx2.location[0], max_rx2.location[1]), xycoords='data',
+                    xytext=(-1.5, -1.5), textcoords='offset points',color="b")
+    plt.title(f"{rx1.id} Power:{total_power_rx1:3.2f} dBm, {rx2.id} Power :{total_power_rx2:3.2f} dBm")
+    plt.show()
+def create_scenario_2():
+    formatter0 = EngFormatter(unit='m')
+
+    number_tx = 10
+    randomize_direction = False
+    r_tower_min = 0
+    r_tower_max = 100000
+    angle_tower_min = -1*(np.pi/180)*180
+    angle_tower_max = (np.pi/180)*180
+
+    rx1 = RxNode([0,1],[0,0],antenna_pattern=omni,id="omni")
+    rx2 = RxNode([1,1],[0,0],antenna_pattern=simple_directional_gain,id="directional")
+    rxs  = [rx1,rx2]
+    txs = []
+    last_location = [0,0]
+
+    for i in range(number_tx):
+        if randomize_direction:
+            direction = [np.random.uniform(low=-1, high=1),np.random.uniform(low=-1, high=1)]
+        else:
+            direction = [0,1]
+        r_random = np.random.uniform(low= r_tower_min,high=r_tower_max)
+        angle_random = np.random.uniform(low= angle_tower_min,high=angle_tower_max)
+        location = [r_random*np.cos(angle_random),r_random*np.sin(angle_random)]
+        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=74)
+        txs.append(new_tx)
+    fig,ax = plt.subplots()
+    ax.set_aspect('equal')
+    ax.add_patch(patches.Circle([0,0],radius=r_tower_min,fill=False,color='r'))
+    ax.add_patch(patches.Circle([0,0],radius=r_tower_max,fill=False,color='r'))
+    ax.xaxis.set_major_formatter(formatter0)
+    ax.yaxis.set_major_formatter(formatter0)
+    ax.tick_params(axis='x', labelrotation=45)
+
+
+
+
+    for rx in rxs:
+        ax.plot(*rx.location,"rD")
+        ax.quiver(rx.location[0],rx.location[1], rx.direction[0], rx.direction[1], color='r')
+    for tx in txs:
+            ax.plot(*tx.location,"gs")
+            ax.quiver(tx.location[0],tx.location[1], tx.direction[0], tx.direction[1], color='g')
+            ax.add_patch(patches.Circle(tx.location,radius=r_tower_max/20,fill=False))
+    plt.grid()
+    power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x),txs)))
+    power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x),txs)))
+    total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
+    total_power_rx2 = 10*np.log10(np.sum(10**(power_list_rx2/10)))
+    max_rx1 = txs[np.argmax(power_list_rx1)]
+    #plt.plot(max_rx1.location[0],max_rx1.location[1],"k.",markersize=22)
+    max_rx2 = txs[np.argmax(power_list_rx2)]
+    ax = plt.gca()
+    ax.annotate(f"max of {rx1.id}",
+                    xy=(max_rx1.location[0], max_rx1.location[1]), xycoords='data',
+                    xytext=(-30, 10), textcoords='offset points',color="k",bbox=dict(facecolor='k', alpha=0.1))
+    ax.annotate(f"max of {rx2.id}",
+                    xy=(max_rx2.location[0], max_rx2.location[1]), xycoords='data',
+                    xytext=(-30, -10), textcoords='offset points',color="k",bbox=dict(facecolor='k', alpha=0.1))
+    plt.title(f"{rx1.id} Power:{total_power_rx1:3.2f} dBm, {rx2.id} Power :{total_power_rx2:3.2f} dBm")
+    plt.xlim([-r_tower_max,r_tower_max])
+    plt.show()
+def create_scenario_3():
+    formatter0 = EngFormatter(unit='m')
+    number_tx = 10
+    randomize_direction = False
+    r_tower_min = 100000
+    r_tower_max = 100000
+    angle_tower_min = (np.pi/180)*0
+    angle_tower_max = (np.pi/180)*90
+    theta1 = np.pi/180 * -10
+    theta2 = np.pi/180*10
+    directional_ = lambda x: simple_directional_gain(x,theta1=theta1,theta2=theta2)
+
+    rx1 = RxNode([0,1],[0,0],antenna_pattern=omni,id="omni")
+    rx2 = RxNode([1,1],[0,0],antenna_pattern=directional_,id="directional")
+    rxs  = [rx1,rx2]
+    txs = []
+
+    for i in range(number_tx):
+        if randomize_direction:
+            direction = [np.random.uniform(low=-1, high=1),np.random.uniform(low=-1, high=1)]
+        else:
+            direction = [0,1]
+        r_random = np.random.uniform(low= r_tower_min,high=r_tower_max)
+        angle_random = np.random.uniform(low= angle_tower_min,high=angle_tower_max)
+        location = [r_random*np.cos(angle_random),r_random*np.sin(angle_random)]
+        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=74)
+        txs.append(new_tx)
+    fig,ax = plt.subplots()
+    ax.set_aspect('equal')
+    ax.add_patch(patches.Circle([0,0],radius=r_tower_min,fill=False,color='r',linestyle="dashed"))
+    ax.add_patch(patches.Circle([0,0],radius=r_tower_max,fill=False,color='r',linestyle="dashed"))
+    ax.xaxis.set_major_formatter(formatter0)
+    ax.yaxis.set_major_formatter(formatter0)
+    ax.tick_params(axis='x', labelrotation=45)
+    for rx in rxs:
+        ax.plot(*rx.location,"rD",alpha=0)
+        #ax.quiver(rx.location[0],rx.location[1], rx.direction[0], rx.direction[1], color='r')
+        if rx.antenna_pattern != omni:
+            relative_angle = -180/np.pi*calculate_relative_angle(1,0,*rx.direction)
+            image = plt.imread("./resources/dish.png")
+            rotated_image = ndimage.rotate(image, angle=relative_angle)         
+            imagebox = OffsetImage(rotated_image, zoom=0.03)
+            imagebox.image.axes = ax
+            ab = AnnotationBbox(imagebox,rx.location, frameon=False)
+            ax.add_artist(ab)
+            arc = patches.Wedge(rx.location,r_tower_max,theta1=theta1*180/np.pi-relative_angle,theta2 = theta2*180/np.pi-relative_angle, lw=2,color="y",alpha=.2)
+            ax.add_patch(arc)
+
+
+    for tx in txs:
+            imagebox = OffsetImage(plt.imread("./resources/tower.png"), zoom=0.2)
+            imagebox.image.axes = ax
+            ab = AnnotationBbox(imagebox,tx.location, frameon=False)
+            ax.add_artist(ab)
+
+    plt.grid()
+    power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x),txs)))
+    power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x),txs)))
+    total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
+    total_power_rx2 = 10*np.log10(np.sum(10**(power_list_rx2/10)))
+    max_rx1 = txs[np.argmax(power_list_rx1)]
+    #plt.plot(max_rx1.location[0],max_rx1.location[1],"k.",markersize=22)
+    max_rx2 = txs[np.argmax(power_list_rx2)]
+    ax = plt.gca()
+    ax.annotate(f"max of {rx1.id}",
+                    xy=(max_rx1.location[0], max_rx1.location[1]), xycoords='data',
+                    xytext=(-30, 30), textcoords='offset points',color="k",bbox=dict(facecolor='b', alpha=0.1))
+    ax.add_patch(patches.Circle(max_rx1.location,radius=r_tower_max/10,fill=False,color="b"))
+    ax.annotate(f"max of {rx2.id}",
+                    xy=(max_rx2.location[0], max_rx2.location[1]), xycoords='data',
+                    xytext=(-30, -30), textcoords='offset points',color="k",bbox=dict(facecolor='r', alpha=0.1))
+    ax.add_patch(patches.Circle(max_rx2.location,radius=r_tower_max/10,fill=False,color="r"))
+
+    plt.xlim([-r_tower_max,r_tower_max])
+    plt.show()
+def create_scenario_4():
+    formatter0 = EngFormatter(unit='m')
+    number_tx = 6
+    EIRP_tx = 23
+    randomize_direction = False
+    r_tower_min = 100000
+    r_tower_max = 100000
+    angle_tower_min = (np.pi/180)*-180
+    angle_tower_max = (np.pi/180)*180
+    theta1 = np.pi/180 * -7.5
+    theta2 = np.pi/180*7.5
+    directional_ = lambda x: simple_directional_gain(x,theta1=theta1,theta2=theta2,gain1=15,gain2=-20)
+    max_circle_radius = r_tower_max/6
+    rx1 = RxNode([0,1],[0,0],antenna_pattern=omni,id="omni")
+    rx2 = RxNode([1,1],[0,0],antenna_pattern=directional_,id="directional")
+    rxs  = [rx1,rx2]
+    txs = []
+    for i in range(number_tx):
+        if randomize_direction:
+            direction = [np.random.uniform(low=-1, high=1),np.random.uniform(low=-1, high=1)]
+        else:
+            direction = [0,1]
+        r_random = np.random.uniform(low= r_tower_min,high=r_tower_max)
+        if i == 0:
+            r_random = r_tower_max/2
+        angle_ = np.linspace(angle_tower_min,angle_tower_max,number_tx+1)[i]
+        location = [r_random*np.cos(angle_),r_random*np.sin(angle_)]
+        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=EIRP_tx)
+        txs.append(new_tx)
+    for i,rx_theta in enumerate(np.linspace(-np.pi,np.pi,36)[0:2]):
+            rx2.direction = [np.cos(rx_theta),np.sin(rx_theta)]
+            fig = plt.figure(figsize=(10,10),constrained_layout=True)
+            gs = GridSpec(4,5,figure=fig)
+            ax  = fig.add_subplot(gs[0:,0:4])
+            ax.set_aspect('equal')
+            ax.xaxis.set_major_formatter(formatter0)
+            ax.yaxis.set_major_formatter(formatter0)
+            ax.tick_params(axis='x', labelrotation=45)
+            for rx in rxs:
+                    ax.plot(*rx.location,"rD",alpha=0)
+                    if rx.antenna_pattern != omni:
+                            relative_angle = -180/np.pi*calculate_relative_angle(1,0,*rx.direction)
+                            image = plt.imread("./resources/dish.png")
+                            rotated_image = ndimage.rotate(image, angle=-90-relative_angle)         
+                            imagebox = OffsetImage(rotated_image, zoom=0.03)
+                            imagebox.image.axes = ax
+                            ab = AnnotationBbox(imagebox,rx.location, frameon=False)
+                            ax.add_artist(ab)
+                            arc = patches.Wedge(rx.location,r_tower_max,theta1=theta1*180/np.pi-relative_angle,theta2 = theta2*180/np.pi-relative_angle, lw=2,color="y",alpha=.2)
+                            ax.add_patch(arc)
+
+
+
+
+            ax.grid()
+            power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x),txs)))
+            percentage_rx1 = 10**(power_list_rx1/10)/np.sum(10**(power_list_rx1/10))
+            power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x),txs)))
+            percentage_rx2 = 10**(power_list_rx2/10)/np.sum(10**(power_list_rx2/10))
+            total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
+            total_power_rx2 = 10*np.log10(np.sum(10**(power_list_rx2/10)))
+            max_rx1 = txs[np.argmax(power_list_rx1)]
+            max_rx2 = txs[np.argmax(power_list_rx2)]
+            ax.add_patch(patches.Circle(max_rx1.location,radius=max_circle_radius,fill=True,color="b",alpha=.2))
+            ax.add_patch(patches.Circle(max_rx1.location,radius=max_circle_radius,fill=False,color="b",alpha=1))
+            ax.add_patch(patches.Circle(max_rx2.location,radius=.95*max_circle_radius,fill=True,color="r",alpha=.2))
+            ax.add_patch(patches.Circle(max_rx2.location,radius=.95*max_circle_radius,fill=False,color="r",alpha=1))
+
+            ax.annotate(f"Omni- Power:{total_power_rx1:3.2f} Total-Max: {total_power_rx1-max(power_list_rx1):3.2f}\nDirectional- Power: {total_power_rx2:3.2f} Total-Max: {total_power_rx2-max(power_list_rx2):3.2f}",
+                            xy=(-r_tower_max,-r_tower_max-r_tower_max/5), xycoords='data',
+                            xytext=(5, -10), textcoords='offset points',color="k",bbox=dict(facecolor='w', alpha=0.5))
+            for tx_index,tx in enumerate(txs):
+                    im = create_tower_glyph([percentage_rx1[tx_index],percentage_rx2[tx_index]],format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=10,base_image="./resources/wifi.png")
+                    plt.close()
+                    imagebox = OffsetImage(im, zoom=0.05)
+                    imagebox.image.axes = ax
+                    ab = AnnotationBbox(imagebox,tx.location, frameon=False)
+                    ax.add_artist(ab)
+            ax.set_xlim([1.1*-r_tower_max,1.1*r_tower_max])
+            ax.set_ylim([1.1*(-r_tower_max -r_tower_max/4),1.1*r_tower_max])
+            ax1  = fig.add_subplot(gs[0,4])
+            ax1.set_axis_off()
+            im_= create_tower_glyph([percentage_rx1[np.argmax(power_list_rx1)],percentage_rx2[np.argmax(power_list_rx1)]],["RX1","RX2"],
+                                    format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=22,base_image="./resources/wifi.png");
+            plt.close()
+            ax1.imshow(im_)
+            ax1.set_title(f"Max of Omni")
+            ax2  = fig.add_subplot(gs[1,4])
+            ax2.set_axis_off()
+            im_= create_tower_glyph([percentage_rx1[np.argmax(power_list_rx2)],percentage_rx2[np.argmax(power_list_rx2)]],["RX1","RX2"],
+                                    format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=22,base_image="./resources/wifi.png");
+            plt.close()
+            ax2.imshow(im_)
+            ax2.set_title(f"Max of Directional")
+            ax3 = fig.add_subplot(gs[2,4],**{'projection': 'polar'})
+            theta = np.linspace(-np.pi, np.pi, 100)
+            relative_theta = rx1.calculate_relative_angle(np.cos(theta),np.sin(theta))
+            r = rx1.antenna_pattern(relative_theta)
+            theta_direction = np.arctan2(rx1.direction[1],rx1.direction[0])
+            ax3.plot(theta_direction+relative_theta,r,color="r",marker="D",linestyle="solid")
+            ax3.set_title(f"Rx1 Antenna Pattern Gain", va='bottom')
+            ax3.grid(True)
+            ax4 = fig.add_subplot(gs[3,4],**{'projection': 'polar'})
+            theta = np.linspace(-np.pi, np.pi, 100)
+            relative_theta = rx2.calculate_relative_angle(np.cos(theta),np.sin(theta))
+            r = rx2.antenna_pattern(relative_theta)
+            theta_direction = np.arctan2(rx2.direction[1],rx2.direction[0])
+            ax4.plot(theta_direction+relative_theta,r,color="g",marker="D",linestyle="solid")
+            ax4.set_title(f"Rx2 Antenna Pattern Gain", va='bottom')
+            ax4.grid(True)
+            plt.tight_layout
+            #plt.savefig(os.path.join(r"C:\Users\sandersa\PycharmProjects\scratch\directivity_modeling\scenario 6",f"{i}_scenario_6.png"))
+            plt.show()
+            plt.close()
+
 
 # -----------------------------------------------------------------------------
 # Module Runner
 if __name__=="__main__":
-    plot_antenna_functions()
+    #plot_antenna_functions()
+    #show_tower_glyph()
+    #create_scenario_1()
+    #create_scenario_2()
+    #create_scenario_3()
+    create_scenario_4()

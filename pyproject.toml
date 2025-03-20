@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = 'A repository to model line of site power models from one or more transmitters and receivers, includes antenna directivity.'
 readme = "README.md"
 requires-python = ">=3.8"
-license = "MIT"
+license = "NIST"
 keywords = []
 authors = [
   { name = "sandersa", email = "aric.sanders@nist.gov" },
