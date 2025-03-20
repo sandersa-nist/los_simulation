@@ -42,17 +42,17 @@ for module in sorted(DE_API_MODULES.keys()):
     try:
         if DE_API_MODULES[module]:
             if VERBOSE_IMPORT:
-                print(("Importing {{0}}".format(module)))
-            exec('from {{0}} import *'.format(module))
+                print(("Importing {0}".format(module)))
+            exec('from {0} import *'.format(module))
             if TIMED_IMPORT:
                 end_timer = datetime.datetime.now(datetime.timezone.utc)
                 time_difference = end_timer - start_timer
-                print(("It took {{0}} s to import {{1}}".format(time_difference.total_seconds(), module)))
+                print(("It took {0} s to import {1}".format(time_difference.total_seconds(), module)))
                 start_timer = end_timer
     except:
-        print(f"The {{module}}failed to import")
+        print(f"The {module}failed to import")
         pass
 if TIMED_IMPORT:
     end_timer = datetime.datetime.now(datetime.timezone.utc)
     time_difference = end_timer - first_timer
-    print(("It took {{0}} s to import all of the active modules".format(time_difference.total_seconds())))
+    print(("It took {0} s to import all of the active modules".format(time_difference.total_seconds())))
