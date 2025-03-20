@@ -50,7 +50,7 @@ omit = [
 ]
 
 [tool.coverage.paths]
-los_simulation = ["los_simulation", "*/los-simulation/los_simulation"]
+los_simulation = ["los_simulation", "*/los-simulation/los_simulation","resources","*/los_simulation/resources"]
 tests = ["tests", "*/los-simulation/tests"]
 
 [tool.coverage.report]
