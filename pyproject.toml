@@ -31,7 +31,8 @@ Documentation = "https://github.com/sandersa/los-simulation#readme"
 Issues = "https://github.com/sandersa/los-simulation/issues"
 Source = "https://github.com/sandersa/los-simulation"
 
-
+[tool.hatch.version]
+path = "los_simulation/__about__.py"
 
 [tool.hatch.envs.types]
 extra-dependencies = [
