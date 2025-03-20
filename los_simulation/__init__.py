@@ -1,1 +1,2 @@
-from simulations import *
+__all__ = ['simulations']
+from . import simulations
