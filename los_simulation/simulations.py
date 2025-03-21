@@ -106,8 +106,6 @@ def calculate_horizon(height):
 def calculate_relative_angle(x1,y1,x2,y2):
         mag_a = np.sqrt(x2**2+y2**2)
         mag_b = np.sqrt(x1**2+y1**2)
-        #print(f"mag_a:{mag_a}, mag_b:{mag_b}")
-        #print((x1*x2+y1*y2)/(mag_a*mag_b))
         inverse_cos =  np.arccos((x1*x2+y1*y2)/(mag_a*mag_b))
         v1 = [x1,y1,0]
         v2= [x2,y2,0]
@@ -179,7 +177,6 @@ def create_tower_glyph(percentage,rx_names=None,format_1={"color":"r"},format_2=
                 format_1_  =format_1
                 format_2_  =format_2
             bar_ax = fig.add_subplot(gs[5+i,0:])
-            print(i)    
             bar_ax.barh([name],[percentage[i]],**format_1_)
             bar_ax.barh([name],[1-percentage[i]],left = percentage[i],**format_2_)
             bar_ax.set_xticks([])
@@ -248,6 +245,10 @@ class TxNode(Node):
 class RxNode(Node):
     def __init__(self,direction,location,antenna_pattern=simple_directional_gain,id=None):
         super().__init__(direction=direction,location=location,antenna_pattern=antenna_pattern,id=id)
+
+class Scenario():
+    pass
+
 # -----------------------------------------------------------------------------
 # Module Scripts
 
@@ -276,9 +277,9 @@ def show_tower_glyph():
     plt.axis("off")
     plt.show()
 
-def create_scenario_1():
-    number_tx = 10
-    mean_tx_spacing = 1000
+def create_scenario_1(number_tx = 10,mean_tx_spacing=1000):
+    """"""
+
     rx1 = RxNode([1,1],[0,0],antenna_pattern=omni,id="omni")
     rx2 = RxNode([1,1],[0,0],antenna_pattern=simple_directional_gain,id="directional")
     rxs  = [rx1,rx2]
@@ -313,22 +314,16 @@ def create_scenario_1():
                     xytext=(-1.5, -1.5), textcoords='offset points',color="b")
     plt.title(f"{rx1.id} Power:{total_power_rx1:3.2f} dBm, {rx2.id} Power :{total_power_rx2:3.2f} dBm")
     plt.show()
-def create_scenario_2():
-    formatter0 = EngFormatter(unit='m')
 
-    number_tx = 10
-    randomize_direction = False
-    r_tower_min = 0
-    r_tower_max = 100000
-    angle_tower_min = -1*(np.pi/180)*180
-    angle_tower_max = (np.pi/180)*180
+def create_scenario_2(number_tx=10,randomize_direction=False,r_tower_min=0,
+                      r_tower_max=100000,angle_tower_min = -1*(np.pi/180)*180,
+                      angle_tower_max = (np.pi/180)*180):
+    formatter0 = EngFormatter(unit='m')
 
     rx1 = RxNode([0,1],[0,0],antenna_pattern=omni,id="omni")
     rx2 = RxNode([1,1],[0,0],antenna_pattern=simple_directional_gain,id="directional")
     rxs  = [rx1,rx2]
     txs = []
-    last_location = [0,0]
-
     for i in range(number_tx):
         if randomize_direction:
             direction = [np.random.uniform(low=-1, high=1),np.random.uniform(low=-1, high=1)]
@@ -346,10 +341,6 @@ def create_scenario_2():
     ax.xaxis.set_major_formatter(formatter0)
     ax.yaxis.set_major_formatter(formatter0)
     ax.tick_params(axis='x', labelrotation=45)
-
-
-
-
     for rx in rxs:
         ax.plot(*rx.location,"rD")
         ax.quiver(rx.location[0],rx.location[1], rx.direction[0], rx.direction[1], color='r')
@@ -363,7 +354,6 @@ def create_scenario_2():
     total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
     total_power_rx2 = 10*np.log10(np.sum(10**(power_list_rx2/10)))
     max_rx1 = txs[np.argmax(power_list_rx1)]
-    #plt.plot(max_rx1.location[0],max_rx1.location[1],"k.",markersize=22)
     max_rx2 = txs[np.argmax(power_list_rx2)]
     ax = plt.gca()
     ax.annotate(f"max of {rx1.id}",
@@ -375,17 +365,13 @@ def create_scenario_2():
     plt.title(f"{rx1.id} Power:{total_power_rx1:3.2f} dBm, {rx2.id} Power :{total_power_rx2:3.2f} dBm")
     plt.xlim([-r_tower_max,r_tower_max])
     plt.show()
-def create_scenario_3():
+
+def create_scenario_3(number_tx=10,randomize_direction=False,r_tower_min=0,
+                      r_tower_max=100000,angle_tower_min = -1*(np.pi/180)*180,
+                      angle_tower_max = (np.pi/180)*180,theta1 =np.pi/180 * -10,
+                      theta2 = np.pi/180*10):
     formatter0 = EngFormatter(unit='m')
-    number_tx = 10
-    randomize_direction = False
-    r_tower_min = 100000
-    r_tower_max = 100000
-    angle_tower_min = (np.pi/180)*0
-    angle_tower_max = (np.pi/180)*90
-    theta1 = np.pi/180 * -10
-    theta2 = np.pi/180*10
-    directional_ = lambda x: simple_directional_gain(x,theta1=theta1,theta2=theta2)
+    directional_ = lambda x: simple_directional_gain(x,theta1=theta1,theta2=theta2,gain1=15,gain2=-20)
 
     rx1 = RxNode([0,1],[0,0],antenna_pattern=omni,id="omni")
     rx2 = RxNode([1,1],[0,0],antenna_pattern=directional_,id="directional")
@@ -450,17 +436,11 @@ def create_scenario_3():
 
     plt.xlim([-r_tower_max,r_tower_max])
     plt.show()
-def create_scenario_4():
+def create_scenario_4(EIRP_tx = 23,number_tx=10,randomize_direction=False,r_tower_min=0,
+                      r_tower_max=100000,angle_tower_min = -1*(np.pi/180)*180,
+                      angle_tower_max = (np.pi/180)*180,theta1 =np.pi/180 * -10,
+                      theta2 = np.pi/180*10):
     formatter0 = EngFormatter(unit='m')
-    number_tx = 6
-    EIRP_tx = 23
-    randomize_direction = False
-    r_tower_min = 100000
-    r_tower_max = 100000
-    angle_tower_min = (np.pi/180)*-180
-    angle_tower_max = (np.pi/180)*180
-    theta1 = np.pi/180 * -7.5
-    theta2 = np.pi/180*7.5
     directional_ = lambda x: simple_directional_gain(x,theta1=theta1,theta2=theta2,gain1=15,gain2=-20)
     max_circle_radius = r_tower_max/6
     rx1 = RxNode([0,1],[0,0],antenna_pattern=omni,id="omni")
@@ -479,6 +459,7 @@ def create_scenario_4():
         location = [r_random*np.cos(angle_),r_random*np.sin(angle_)]
         new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=EIRP_tx)
         txs.append(new_tx)
+        
     for i,rx_theta in enumerate(np.linspace(-np.pi,np.pi,36)[0:2]):
             rx2.direction = [np.cos(rx_theta),np.sin(rx_theta)]
             fig = plt.figure(figsize=(10,10),constrained_layout=True)
@@ -571,7 +552,7 @@ def create_scenario_4():
 if __name__=="__main__":
     #plot_antenna_functions()
     #show_tower_glyph()
-    #create_scenario_1()
+    create_scenario_1()
     #create_scenario_2()
     #create_scenario_3()
-    create_scenario_4()
+    #create_scenario_4()
