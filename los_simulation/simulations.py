@@ -5,7 +5,10 @@
 # Created:     03/19/205
 # License:     NIST License
 # -----------------------------------------------------------------------------
-"""docstring
+"""simulation.py is a module that defines transmitter and receiver nodes, and then given information about
+location, direction and antenna pattern in 2 dimensions, calculates the linear sum of power at a location. This
+simulation assumes line of sight propagation and uses the Friis equation to estimate power at a particular
+point in space. This simulation is meant as a demonstration only.
 """
 # -----------------------------------------------------------------------------
 # Standard Imports
