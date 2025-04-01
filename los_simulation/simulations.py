@@ -14,7 +14,6 @@ point in space. This simulation is meant as a demonstration only.
 # Standard Imports
 import sys
 import os
-from importlib import resources
 
 # -----------------------------------------------------------------------------
 # Third Party Imports
@@ -32,6 +31,7 @@ PARENT_DIRECTORY = os.path.dirname( __file__ )
 TOWER_IMAGE_PATH = os.path.join(PARENT_DIRECTORY,"resources","tower.png")
 WIFI_IMAGE_PATH = os.path.join(PARENT_DIRECTORY,"resources","wifi.png")
 DISH_IMAGE_PATH = os.path.join(PARENT_DIRECTORY,"resources","dish.png")
+C = 299792458 # speed of light
 
 # -----------------------------------------------------------------------------
 # Module Functions
@@ -44,10 +44,10 @@ def omni(theta_array,gain=9):
     return gain*np.ones(theta_array.size)
 
 def cos_three_halves(theta_array,gain=1):
-    """Returns gain + cosine 3/2 function """
+    """Returns gain + cosine^3/2(theta) function """
     return gain+10*np.log10(np.cos(theta_array)**(3/2))
 
-def ntia_very_high_gain_model_point(theta,gain =50 ):
+def ntia_very_high_gain_model_point(theta,gain =50):
     """From NTIA / ITS TM 09-461, A statistical gain antenna model that determines the radar antenna gain in the azimuth orientation. Assumes a maximum
     gain greater than and 48 dBi"""
     assert gain>48, "gain is too low to use this model, ntia_high_gain or ntia_medium_gain"
@@ -65,7 +65,11 @@ def ntia_very_high_gain_model_point(theta,gain =50 ):
     else:
         gain_out=-13
     return gain_out
-ntia_very_high_gain_model = np.vectorize(ntia_very_high_gain_model_point,excluded=set(["gain"]))
+
+ntia_very_high_gain_model = np.vectorize(ntia_very_high_gain_model_point,excluded=set(["gain"]),
+                                         doc="Vectorized version of ntia_very_high_gain_model_point, function is for use as antenna pattern.")
+
+ 
 
 def ntia_high_gain_model_point(theta,gain =30):
     """From NTIA / ITS TM 09-461, A statistical gain antenna model that determines the radar antenna gain in the azimuth orientation. Assumes a maximum
@@ -85,7 +89,9 @@ def ntia_high_gain_model_point(theta,gain =30):
     else:
         gain_out=-13
     return gain_out
-ntia_high_gain_model = np.vectorize(ntia_high_gain_model_point,excluded=set(["gain"]))
+
+ntia_high_gain_model =np.vectorize(ntia_high_gain_model_point,excluded=set(["gain"]),
+                                   doc="Vectorized version of ntia_high_gain_model_point, function is for use as antenna pattern.")
 
 def ntia_medium_gain_model_point(theta,gain =20 ):
     """From NTIA / ITS TM 09-461, A statistical gain antenna model that determines the radar antenna gain in the azimuth orientation. Assumes a maximum
@@ -105,7 +111,9 @@ def ntia_medium_gain_model_point(theta,gain =20 ):
     else:
         gain_out = 0
     return gain_out
-ntia_medium_gain_model = np.vectorize(ntia_medium_gain_model_point,excluded=set(["gain"]))
+
+ntia_medium_gain_model=np.vectorize(ntia_medium_gain_model_point,excluded=set(["gain"]),
+    doc="Vectorized version of ntia_medium_gain_model_point, function is for use as antenna pattern.")
 
 def calculate_horizon(height):
     """Calculates the horizon distance in m given the height in meters"""
@@ -124,13 +132,17 @@ def calculate_relative_angle(x1,y1,x2,y2):
             angle = -inverse_cos
         else:
             angle = inverse_cos
-        return angle 
+        return angle
+
+vcal= np.vectorize(calculate_relative_angle,excluded=set(["x1","y1"]))
+    #"Vectorized version of calculate_relative_angle"
+
         
-vcal = np.vectorize(calculate_relative_angle,excluded=set(["x1","y1"]))
 def node_distance(node1,node2):
+    "returns the distance between node1 and node2"
     return np.sqrt((node1.location[0]-node2.location[0])**2+(node1.location[1]-node2.location[1])**2)
 
-def node_to_node_power(node1,node2,wavelength = 299792458/3.75e9):
+def node_to_node_power(node1,node2,wavelength = C/3.75e9):
     """Returns the loss in dB between 2 nodes for a specified wavelength"""
     distance = node_distance(node1,node2)
     rx_angle = node1.calculate_relative_angle(node2.location[0]-node1.location[0],node2.location[1]-node1.location[1])
@@ -143,7 +155,7 @@ def node_to_node_power(node1,node2,wavelength = 299792458/3.75e9):
         power_rx = power_rx[0]
     return power_rx
 
-def node_to_node_loss(node1,node2,wavelength = 299792458/3.75e9):
+def node_to_node_loss(node1,node2,wavelength = C/3.75e9):
     """Returns the loss in dB between 2 nodes"""
     distance = node_distance(node1,node2)
     rx_angle = node1.calculate_relative_angle(node2.location[0]-node1.location[0],node2.location[1]-node1.location[1])
@@ -169,7 +181,7 @@ def create_tower_glyph(percentage,rx_names=None,format_1={"color":"r"},format_2=
     else:
         number_bars = 1
                   
-    fig = plt.figure( figsize=(5,5),layout='constrained')
+    fig = plt.figure( figsize=figsize,layout='constrained')
     gs  = GridSpec(5+number_bars,1) 
     ax1 = fig.add_subplot(gs[0:5,0:])
 
@@ -221,7 +233,9 @@ def create_tower_glyph(percentage,rx_names=None,format_1={"color":"r"},format_2=
 # -----------------------------------------------------------------------------
 # Module Classes
 class Node():
-    def __init__(self,direction,location,antenna_pattern=simple_directional_gain,id=None):
+    """A simple model of a receiver or transmitter that has location, direction, antenna pattern and an optional id.
+      Has a convenience option for calculating the relative angle to any point, and also an azimuthal plot of the antenna function"""
+    def __init__(self,location,direction=[0,1],antenna_pattern=simple_directional_gain,id=None):
         self.direction = direction
         self.location = location
         self.antenna_pattern = antenna_pattern
@@ -243,7 +257,8 @@ class Node():
 
 
 class TxNode(Node):
-    def __init__(self,direction,location,power = 1,antenna_pattern=simple_directional_gain,signal=1,id=None):
+    "Transmitter node with power and an optional signal"
+    def __init__(self,location,direction=[0,1],power = 1,antenna_pattern=simple_directional_gain,signal=1,id=None):
         super().__init__(direction=direction,location=location,antenna_pattern=antenna_pattern,id=id)
         self.signal = signal
         self.power = power
@@ -257,16 +272,18 @@ class RxNode(Node):
     def __init__(self,direction,location,antenna_pattern=simple_directional_gain,id=None):
         super().__init__(direction=direction,location=location,antenna_pattern=antenna_pattern,id=id)
 
-class Scenario():
-    pass
 
 # -----------------------------------------------------------------------------
 # Module Scripts
+def test_antenna_function(antenna_function =ntia_very_high_gain_model ):
+    rx = RxNode(location=[0,0],direction=[0,1],antenna_pattern=antenna_function)
+    rx.plot_antenna_pattern()
+    plt.show()
 
 def plot_antenna_functions(antenna_functions=[omni,simple_directional_gain,
                                               cos_three_halves,
                                               ntia_very_high_gain_model,ntia_high_gain_model,
-                                              ntia_medium_gain_model]):
+                                              ntia_medium_gain_model],show =True,save=False):
     """plots all antenna functions in antenna_functions"""
     figure,ax = plt.subplots(subplot_kw={'projection': 'polar'})
     theta = np.linspace(-1*np.pi,1*np.pi,1000)
@@ -274,31 +291,46 @@ def plot_antenna_functions(antenna_functions=[omni,simple_directional_gain,
         try:
             ax.plot(theta,func(theta),label = func.__name__)
         except:
-            pass
+            raise
     ax.legend(loc='lower left', bbox_to_anchor=(1, 1))
     plt.tight_layout()
+    if save:
+        if isinstance(save,str):
+            save_path = save
+        else:
+            save_path = "antena_functions.png"
+        plt.savefig(save_path)
+    if show:
+     plt.show()
 
-    plt.show()
-
-def show_tower_glyph():
+def show_tower_glyph(base_image=WIFI_IMAGE_PATH,show =True,save=False):
     """Shows the tower glyph, meant as a test of functionality"""
     im =create_tower_glyph([.5,.25],["Omni","Directional"],format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"*"}],
-                           format_2=[{"color":"b"},{"color":"y"}],fontsize=10,base_image=WIFI_IMAGE_PATH)
+                           format_2=[{"color":"b"},{"color":"y"}],fontsize=10,base_image=base_image)
     plt.imshow(im)
     plt.axis("off")
-    plt.show()
+    if save:
+        if isinstance(save,str):
+            save_path = save
+        else:
+            save_path = "tower_glyph.png"
+        plt.savefig(save_path)
+    if show:
+     plt.show()
 
-def create_scenario_1(number_tx = 10,mean_tx_spacing=1000):
-    """"""
+def create_scenario_1(number_tx = 10,mean_tx_spacing=1000,relative_tx_power =76,wavelength = C/3.75e9 ,show =True,save=False):
+    """Creates a simple scenario of 2 receivers at the origin, one is an omni directional and the other is a simple directional pointed in the 1i+1j direction. The number of transmitters
+    are placed at random locations determined by mean_tx_spacing * uniform([-1,1]) in x and y amd are all omni directional emitters with a relative_tx_power. The 
+    total power is calculated using a linear summation of powers for the wavelength using the friis formula. To save the image either specify save = path or save = True."""
 
-    rx1 = RxNode([1,1],[0,0],antenna_pattern=omni,id="omni")
-    rx2 = RxNode([1,1],[0,0],antenna_pattern=simple_directional_gain,id="directional")
+    rx1 = RxNode(location=[0,0],direction=[0,1],antenna_pattern=omni,id="omni")
+    rx2 = RxNode(location=[0,0],direction=[1,1],antenna_pattern=simple_directional_gain,id="directional")
     rxs  = [rx1,rx2]
     txs = []
     for i in range(number_tx):
         direction = [0,1]
         location = [mean_tx_spacing*np.random.uniform(low=-1, high=1),mean_tx_spacing*np.random.uniform(low=-1, high=1)]
-        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=76)
+        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=relative_tx_power)
         txs.append(new_tx)
     fig,ax = plt.subplots()
     for rx in rxs:
@@ -309,8 +341,8 @@ def create_scenario_1(number_tx = 10,mean_tx_spacing=1000):
             ax.quiver(tx.location[0],tx.location[1], tx.direction[0], tx.direction[1], color='g')
             ax.add_patch(patches.Circle(xy=tx.location,radius=100,color='g',alpha=1,fill=False))
     plt.grid()
-    power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x),txs)))
-    power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x),txs)))
+    power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x,wavelength=wavelength),txs)))
+    power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x,wavelength=wavelength),txs)))
     total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
     total_power_rx2 = 10*np.log10(np.sum(10**(power_list_rx2/10)))
     max_rx1 = txs[np.argmax(power_list_rx1)]
@@ -324,15 +356,29 @@ def create_scenario_1(number_tx = 10,mean_tx_spacing=1000):
                     xy=(max_rx2.location[0], max_rx2.location[1]), xycoords='data',
                     xytext=(-1.5, -1.5), textcoords='offset points',color="b")
     plt.title(f"{rx1.id} Power:{total_power_rx1:3.2f} dBm, {rx2.id} Power :{total_power_rx2:3.2f} dBm")
-    plt.show()
+    if save:
+        if isinstance(save,str):
+            save_path = save
+        else:
+            save_path = "scenario_1.png"
+        plt.savefig(save_path)
+    if show:
+     plt.show()
 
-def create_scenario_2(number_tx=10,randomize_direction=False,r_tower_min=0,
+def create_scenario_2(number_tx=10,randomize_direction=True,r_tower_min=0,
                       r_tower_max=100000,angle_tower_min = -1*(np.pi/180)*180,
-                      angle_tower_max = (np.pi/180)*180):
-    formatter0 = EngFormatter(unit='m')
+                      angle_tower_max = (np.pi/180)*180,transmitter_antenna_patten=simple_directional_gain,relative_tx_power =76,
+                      wavelength = C/3.75e9,show =True,save=False):
+    
+    """Creates a simple scenario of 2 receivers at the origin, one is an omni directional and the other is a simple directional pointed in the 1i+1j direction. The number of transmitters
+    are placed at random locations between a  radius of r_tower_min and r_tower_max and an angle of angle_tower_min and angle_tower_max. Each transmitter has either has a randomized
+    direction or is pointed in the [0,1] direction and has transmitter_antenna_patten with relative_tx_power.
+    The total power is calculated using a linear summation of powers for the wavelength using the friis formula. 
+    To save the image either specify save = path or save = True."""
 
-    rx1 = RxNode([0,1],[0,0],antenna_pattern=omni,id="omni")
-    rx2 = RxNode([1,1],[0,0],antenna_pattern=simple_directional_gain,id="directional")
+    formatter0 = EngFormatter(unit='m')
+    rx1 = RxNode(location=[0,0],direction=[0,1],antenna_pattern=omni,id="omni")
+    rx2 = RxNode(location=[0,0],direction=[1,1],antenna_pattern=simple_directional_gain,id="directional")
     rxs  = [rx1,rx2]
     txs = []
     for i in range(number_tx):
@@ -343,7 +389,7 @@ def create_scenario_2(number_tx=10,randomize_direction=False,r_tower_min=0,
         r_random = np.random.uniform(low= r_tower_min,high=r_tower_max)
         angle_random = np.random.uniform(low= angle_tower_min,high=angle_tower_max)
         location = [r_random*np.cos(angle_random),r_random*np.sin(angle_random)]
-        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=74)
+        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=transmitter_antenna_patten,power=relative_tx_power)
         txs.append(new_tx)
     fig,ax = plt.subplots()
     ax.set_aspect('equal')
@@ -360,8 +406,8 @@ def create_scenario_2(number_tx=10,randomize_direction=False,r_tower_min=0,
             ax.quiver(tx.location[0],tx.location[1], tx.direction[0], tx.direction[1], color='g')
             ax.add_patch(patches.Circle(tx.location,radius=r_tower_max/20,fill=False))
     plt.grid()
-    power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x),txs)))
-    power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x),txs)))
+    power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x,wavelength=wavelength),txs)))
+    power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x,wavelength=wavelength),txs)))
     total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
     total_power_rx2 = 10*np.log10(np.sum(10**(power_list_rx2/10)))
     max_rx1 = txs[np.argmax(power_list_rx1)]
@@ -374,18 +420,32 @@ def create_scenario_2(number_tx=10,randomize_direction=False,r_tower_min=0,
                     xy=(max_rx2.location[0], max_rx2.location[1]), xycoords='data',
                     xytext=(-30, -10), textcoords='offset points',color="k",bbox=dict(facecolor='k', alpha=0.1))
     plt.title(f"{rx1.id} Power:{total_power_rx1:3.2f} dBm, {rx2.id} Power :{total_power_rx2:3.2f} dBm")
-    plt.xlim([-r_tower_max,r_tower_max])
-    plt.show()
+    plt.xlim([1.1*-r_tower_max,1.1*r_tower_max])
+    if save:
+        if isinstance(save,str):
+            save_path = save
+        else:
+            save_path = "scenario_2.png"
+        plt.savefig(save_path)
+    if show:
+     plt.show()
 
 def create_scenario_3(number_tx=10,randomize_direction=False,r_tower_min=0,
                       r_tower_max=100000,angle_tower_min = -1*(np.pi/180)*180,
                       angle_tower_max = (np.pi/180)*180,theta1 =np.pi/180 * -10,
-                      theta2 = np.pi/180*10):
+                      theta2 = np.pi/180*10,transmitter_antenna_patten=omni,relative_tx_power =76,
+                      wavelength = C/3.75e9,show =True,save=False): 
+    """Creates a simple scenario of 2 receivers at the origin, one is an omni directional and the other is a simple directional pointed in the 1i+1j direction. The number of transmitters
+    are placed at random locations between a  radius of r_tower_min and r_tower_max and an angle of angle_tower_min and angle_tower_max. Each transmitter has either has a randomized
+    direction or is pointed in the [0,1] direction and has transmitter_antenna_patten with relative_tx_power.
+    The total power is calculated using a linear summation of powers for the wavelength using the friis formula. 
+    To save the image either specify save = path or save = True. The major difference in scenario 2 and scenario 3 is graphical"""
+
     formatter0 = EngFormatter(unit='m')
     directional_ = lambda x: simple_directional_gain(x,theta1=theta1,theta2=theta2,gain1=15,gain2=-20)
 
-    rx1 = RxNode([0,1],[0,0],antenna_pattern=omni,id="omni")
-    rx2 = RxNode([1,1],[0,0],antenna_pattern=directional_,id="directional")
+    rx1 = RxNode(location=[0,0],direction=[0,1],antenna_pattern=omni,id="omni")
+    rx2 = RxNode(location=[0,0],direction=[1,1],antenna_pattern=directional_,id="directional")
     rxs  = [rx1,rx2]
     txs = []
 
@@ -397,7 +457,7 @@ def create_scenario_3(number_tx=10,randomize_direction=False,r_tower_min=0,
         r_random = np.random.uniform(low= r_tower_min,high=r_tower_max)
         angle_random = np.random.uniform(low= angle_tower_min,high=angle_tower_max)
         location = [r_random*np.cos(angle_random),r_random*np.sin(angle_random)]
-        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=74)
+        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=transmitter_antenna_patten,power=relative_tx_power)
         txs.append(new_tx)
     fig,ax = plt.subplots()
     ax.set_aspect('equal')
@@ -408,7 +468,6 @@ def create_scenario_3(number_tx=10,randomize_direction=False,r_tower_min=0,
     ax.tick_params(axis='x', labelrotation=45)
     for rx in rxs:
         ax.plot(*rx.location,"rD",alpha=0)
-        #ax.quiver(rx.location[0],rx.location[1], rx.direction[0], rx.direction[1], color='r')
         if rx.antenna_pattern != omni:
             relative_angle = -180/np.pi*calculate_relative_angle(1,0,*rx.direction)
             image = plt.imread(DISH_IMAGE_PATH)
@@ -419,21 +478,17 @@ def create_scenario_3(number_tx=10,randomize_direction=False,r_tower_min=0,
             ax.add_artist(ab)
             arc = patches.Wedge(rx.location,r_tower_max,theta1=theta1*180/np.pi-relative_angle,theta2 = theta2*180/np.pi-relative_angle, lw=2,color="y",alpha=.2)
             ax.add_patch(arc)
-
-
     for tx in txs:
             imagebox = OffsetImage(plt.imread(TOWER_IMAGE_PATH), zoom=0.2)
             imagebox.image.axes = ax
             ab = AnnotationBbox(imagebox,tx.location, frameon=False)
             ax.add_artist(ab)
-
     plt.grid()
-    power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x),txs)))
-    power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x),txs)))
+    power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x,wavelength=wavelength),txs)))
+    power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x,wavelength=wavelength),txs)))
     total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
     total_power_rx2 = 10*np.log10(np.sum(10**(power_list_rx2/10)))
     max_rx1 = txs[np.argmax(power_list_rx1)]
-    #plt.plot(max_rx1.location[0],max_rx1.location[1],"k.",markersize=22)
     max_rx2 = txs[np.argmax(power_list_rx2)]
     ax = plt.gca()
     ax.annotate(f"max of {rx1.id}",
@@ -446,11 +501,27 @@ def create_scenario_3(number_tx=10,randomize_direction=False,r_tower_min=0,
     ax.add_patch(patches.Circle(max_rx2.location,radius=r_tower_max/10,fill=False,color="r"))
 
     plt.xlim([-r_tower_max,r_tower_max])
-    plt.show()
-def create_scenario_4(EIRP_tx = 23,number_tx=10,randomize_direction=False,r_tower_min=0,
+    if save:
+        if isinstance(save,str):
+            save_path = save
+        else:
+            save_path = "scenario_3.png"
+        plt.savefig(save_path)
+    if show:
+     plt.show()
+
+def create_scenario_4(number_tx=4,randomize_direction=False,r_tower_min=100000,
                       r_tower_max=100000,angle_tower_min = -1*(np.pi/180)*180,
                       angle_tower_max = (np.pi/180)*180,theta1 =np.pi/180 * -10,
-                      theta2 = np.pi/180*10):
+                      theta2 = np.pi/180*10,transmitter_antenna_patten=omni,relative_tx_power =76,
+                      wavelength = C/3.75e9,show =True,save=False):
+    
+    """Creates a simple scenario of 2 receivers at the origin, one is an omni directional and the other is a simple directional rotated through 360 degrees . The number of transmitters
+    are placed at random locations between a  radius of r_tower_min and r_tower_max and an angle of angle_tower_min and angle_tower_max. Each transmitter has either has a randomized
+    direction or is pointed in the [0,1] direction and has transmitter_antenna_patten with relative_tx_power. The transmitter at 
+    The total power is calculated using a linear summation of powers for the wavelength using the friis formula. 
+    To save the image either specify save = path or save = True."""
+        
     formatter0 = EngFormatter(unit='m')
     directional_ = lambda x: simple_directional_gain(x,theta1=theta1,theta2=theta2,gain1=15,gain2=-20)
     max_circle_radius = r_tower_max/6
@@ -468,10 +539,10 @@ def create_scenario_4(EIRP_tx = 23,number_tx=10,randomize_direction=False,r_towe
             r_random = r_tower_max/2
         angle_ = np.linspace(angle_tower_min,angle_tower_max,number_tx+1)[i]
         location = [r_random*np.cos(angle_),r_random*np.sin(angle_)]
-        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=omni,power=EIRP_tx)
+        new_tx = TxNode(direction=direction,location=location,id=f"{i}",antenna_pattern=transmitter_antenna_patten,power=relative_tx_power)
         txs.append(new_tx)
         
-    for i,rx_theta in enumerate(np.linspace(-np.pi,np.pi,36)[0:2]):
+    for i,rx_theta in enumerate(np.linspace(-np.pi,np.pi,36)):
             rx2.direction = [np.cos(rx_theta),np.sin(rx_theta)]
             fig = plt.figure(figsize=(10,10),constrained_layout=True)
             gs = GridSpec(4,5,figure=fig)
@@ -492,14 +563,10 @@ def create_scenario_4(EIRP_tx = 23,number_tx=10,randomize_direction=False,r_towe
                             ax.add_artist(ab)
                             arc = patches.Wedge(rx.location,r_tower_max,theta1=theta1*180/np.pi-relative_angle,theta2 = theta2*180/np.pi-relative_angle, lw=2,color="y",alpha=.2)
                             ax.add_patch(arc)
-
-
-
-
             ax.grid()
-            power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x),txs)))
+            power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x,wavelength=wavelength),txs)))
             percentage_rx1 = 10**(power_list_rx1/10)/np.sum(10**(power_list_rx1/10))
-            power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x),txs)))
+            power_list_rx2 = np.array(list(map(lambda x: node_to_node_power(rx2,x,wavelength=wavelength),txs)))
             percentage_rx2 = 10**(power_list_rx2/10)/np.sum(10**(power_list_rx2/10))
             total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
             total_power_rx2 = 10*np.log10(np.sum(10**(power_list_rx2/10)))
@@ -514,7 +581,8 @@ def create_scenario_4(EIRP_tx = 23,number_tx=10,randomize_direction=False,r_towe
                             xy=(-r_tower_max,-r_tower_max-r_tower_max/5), xycoords='data',
                             xytext=(5, -10), textcoords='offset points',color="k",bbox=dict(facecolor='w', alpha=0.5))
             for tx_index,tx in enumerate(txs):
-                    im = create_tower_glyph([percentage_rx1[tx_index],percentage_rx2[tx_index]],format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=10,base_image=WIFI_IMAGE_PATH)
+                    im = create_tower_glyph([percentage_rx1[tx_index],percentage_rx2[tx_index]],format_1=[{"color":"r","hatch":"/"},
+                                                                                                          {"color":"g","hatch":"\\"}],format_2=[{"color":"b"},{"color":"w"}],fontsize=10,base_image=WIFI_IMAGE_PATH)
                     plt.close()
                     imagebox = OffsetImage(im, zoom=0.05)
                     imagebox.image.axes = ax
@@ -553,17 +621,26 @@ def create_scenario_4(EIRP_tx = 23,number_tx=10,randomize_direction=False,r_towe
             ax4.set_title(f"Rx2 Antenna Pattern Gain", va='bottom')
             ax4.grid(True)
             plt.tight_layout
-            #plt.savefig(os.path.join(r"C:\Users\sandersa\PycharmProjects\scratch\directivity_modeling\scenario 6",f"{i}_scenario_6.png"))
-            plt.show()
+            if save:
+                if isinstance(save,str):
+                    directory = os.path.dirname(save)
+                    basename = os.path.basename(save)
+                    save_path = os.path.join(directory,f"{i}_"+basename)
+                else:
+                    save_path = f"{i}_scenario_4.png"
+                plt.savefig(save_path)
+            if show:
+                plt.show()            
             plt.close()
 
 
 # -----------------------------------------------------------------------------
 # Module Runner
 if __name__=="__main__":
+    test_antenna_function()
     #plot_antenna_functions()
     #show_tower_glyph()
-    create_scenario_1()
+    #create_scenario_1()
     #create_scenario_2()
     #create_scenario_3()
     #create_scenario_4()
