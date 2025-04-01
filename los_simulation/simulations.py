@@ -36,16 +36,20 @@ DISH_IMAGE_PATH = os.path.join(PARENT_DIRECTORY,"resources","dish.png")
 # -----------------------------------------------------------------------------
 # Module Functions
 def simple_directional_gain(theta_array,theta1=-(np.pi/180)*30,theta2=(np.pi/180)*30,gain1=9,gain2=-100): 
+    """Creates a directive gain profile with gain1 from theta1 to theta2 and gain2 in all other directions"""
     return np.where((theta_array>=theta1)&(theta_array<=theta2),gain1,gain2)
 
 def omni(theta_array,gain=9):
+    """Returns an azimuthally symmetric profile with gain"""
     return gain*np.ones(theta_array.size)
 
 def cos_three_halves(theta_array,gain=1):
+    """Returns gain + cosine 3/2 function """
     return gain+10*np.log10(np.cos(theta_array)**(3/2))
 
 def ntia_very_high_gain_model_point(theta,gain =50 ):
-    """From TM 09-461 """
+    """From NTIA / ITS TM 09-461, A statistical gain antenna model that determines the radar antenna gain in the azimuth orientation. Assumes a maximum
+    gain greater than and 48 dBi"""
     assert gain>48, "gain is too low to use this model, ntia_high_gain or ntia_medium_gain"
     theta = abs(theta)
     theta_m = 50*(.25*gain+7)**(.5)/10**(gain/20)
@@ -64,7 +68,8 @@ def ntia_very_high_gain_model_point(theta,gain =50 ):
 ntia_very_high_gain_model = np.vectorize(ntia_very_high_gain_model_point,excluded=set(["gain"]))
 
 def ntia_high_gain_model_point(theta,gain =30):
-    """From TM 09-461 """
+    """From NTIA / ITS TM 09-461, A statistical gain antenna model that determines the radar antenna gain in the azimuth orientation. Assumes a maximum
+    gain between 22 dBi and 48 dBi"""
     assert 22<=gain<48, "gain is too low or too high to use this model, try ntia_very_high_gain or ntia_medium_gain"
     theta = abs(theta)
     theta_m = 50*(.25*gain+7)**(.5)/10**(gain/20)
@@ -83,7 +88,8 @@ def ntia_high_gain_model_point(theta,gain =30):
 ntia_high_gain_model = np.vectorize(ntia_high_gain_model_point,excluded=set(["gain"]))
 
 def ntia_medium_gain_model_point(theta,gain =20 ):
-    """From TM 09-461 """
+    """From NTIA / ITS TM 09-461, A statistical gain antenna model that determines the radar antenna gain in the azimuth orientation. Assumes a maximum
+    gain between 10 dBi and 22 dBi"""
     assert 10<=gain<22, "gain is too low or too high to use this model, try ntia_very_high_gain or ntia_medium_gain"
     theta = abs(theta)
     theta_m = 50*(.25*gain+7)**(.5)/10**(gain/20)
@@ -107,6 +113,7 @@ def calculate_horizon(height):
 
 
 def calculate_relative_angle(x1,y1,x2,y2):
+        """Calculates the relative angle between two locations specified as x1,y1 and x2,y2"""
         mag_a = np.sqrt(x2**2+y2**2)
         mag_b = np.sqrt(x1**2+y1**2)
         inverse_cos =  np.arccos((x1*x2+y1*y2)/(mag_a*mag_b))
@@ -124,7 +131,7 @@ def node_distance(node1,node2):
     return np.sqrt((node1.location[0]-node2.location[0])**2+(node1.location[1]-node2.location[1])**2)
 
 def node_to_node_power(node1,node2,wavelength = 299792458/3.75e9):
-    """Returns the loss in dB between 2 nodes"""
+    """Returns the loss in dB between 2 nodes for a specified wavelength"""
     distance = node_distance(node1,node2)
     rx_angle = node1.calculate_relative_angle(node2.location[0]-node1.location[0],node2.location[1]-node1.location[1])
     tx_angle = node2.calculate_relative_angle(node1.location[0]-node2.location[1],node1.location[1]-node2.location[1])
@@ -147,6 +154,7 @@ def node_to_node_loss(node1,node2,wavelength = 299792458/3.75e9):
     return loss
 
 def fig2data(figure):
+    "Returns a np array given a matplotlib figure"
     figure.canvas.draw()
     w, h = figure.canvas.get_width_height()
     buffer = np.frombuffer(figure.canvas.tostring_argb(), dtype=np.uint8)
@@ -273,7 +281,7 @@ def plot_antenna_functions(antenna_functions=[omni,simple_directional_gain,
     plt.show()
 
 def show_tower_glyph():
-    """Shows the tower glyph"""
+    """Shows the tower glyph, meant as a test of functionality"""
     im =create_tower_glyph([.5,.25],["Omni","Directional"],format_1=[{"color":"r","hatch":"/"},{"color":"g","hatch":"*"}],
                            format_2=[{"color":"b"},{"color":"y"}],fontsize=10,base_image=WIFI_IMAGE_PATH)
     plt.imshow(im)
