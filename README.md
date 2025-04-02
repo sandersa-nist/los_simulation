@@ -1,15 +1,12 @@
 # los_simulation
 A repository to model line-of-site power from one or more transmitters and receivers, includes antenna directivity. 
-
+Based on the [friis](https://en.wikipedia.org/wiki/Friis_transmission_equation) equation. 
 
 # Installation 
 ```shell
 pip install git+https://github.com/sandersa-nist/los_simulation.git
 ```
-![image](./los_simulation/resources/example_scenario.gif)
-
-
-# Example
+# Example Scenario
 ```python
 from los_simulation import *
 create_scenario_1()
@@ -21,9 +18,10 @@ create_scenario_1()
     + power_list_rx1 = np.array(list(map(lambda x: node_to_node_power(rx1,x,wavelength=C/frequency),txs)))
     + total_power_rx1 = 10*np.log10(np.sum(10**(power_list_rx1/10)))
 
-    
-## Jupyter Example
+# Jupyter Example
 [Example](./examples/los_simulation_example.ipynb)
 
 # API Documentation
 [Start](./documentation/index.html)
+
+![image](./los_simulation/resources/example_scenario.gif)
