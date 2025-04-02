@@ -21,7 +21,7 @@ import sys
 # Module Constants
 VERBOSE_IMPORT = False
 TIMED_IMPORT = False
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 "Constant that determines if import statements are echoed to output"
 # The new module load scheme can be for module in DE_API_MODULES.keys()
 # -----------------------------------------------------------------------------
