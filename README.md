@@ -15,6 +15,7 @@ from los_simulation import *
 create_scenario_1()
 ```
 ## Jupyter Example
-[Example]()
+[Example](./examples/los_simulation_example.ipynb)
+
 # API Documentation
 [Start](./documentation/index.html)

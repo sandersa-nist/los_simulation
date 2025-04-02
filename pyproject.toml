@@ -35,7 +35,7 @@ Source = "https://github.com/sandersa/los-simulation"
 los_simulation = ["los_simulation/resources/*"]
 
 [tool.hatch.version]
-path = "los_simulation/__about__.py"
+path = "los_simulation/__init__.py"
 
 [tool.hatch.envs.types]
 extra-dependencies = [

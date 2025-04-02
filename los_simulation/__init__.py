@@ -1,12 +1,11 @@
 # -----------------------------------------------------------------------------
 # Authors:     aric.sanders@nist.gov
-# Created:     03/19/205
+# Created:     03/19/2025
 # License:     NIST License
 # -----------------------------------------------------------------------------
 """
-To change the imported API, change the dictionary API_MODULES to have an entry
-DE_API_MODULE["code.subpackage.module"]=True
- in this __init__.py file.
+los_simulation is a package that calculates the power from transmitters in 2-D space using the Friis equation. This
+simulation assumes line of sight propagation. This simulation is meant as a demonstration only.
 
 """
 
@@ -20,8 +19,8 @@ import sys
 
 # -----------------------------------------------------------------------------
 # Module Constants
-VERBOSE_IMPORT = True
-TIMED_IMPORT = True
+VERBOSE_IMPORT = False
+TIMED_IMPORT = False
 __version__ = "0.0.1"
 "Constant that determines if import statements are echoed to output"
 # The new module load scheme can be for module in DE_API_MODULES.keys()
