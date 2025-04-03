@@ -516,7 +516,7 @@ def create_scenario_4(number_tx=4,randomize_direction=False,r_tower_min=100000,
                       theta2 = np.pi/180*10,transmitter_antenna_patten=omni,relative_tx_power =76,
                       wavelength = C/3.75e9,show =True,save=False):
     
-    """Creates a simple scenario of 2 receivers at the origin, one is an omni directional and the other is a simple directional rotated through 360 degrees . The number of transmitters
+    """Creates a simple scenario of 2 receivers at the origin, one is an omni directional and the other is a directional with a spread of theta1 to theta2 rotated through 360 degrees . The number of transmitters
     are placed at random locations between a  radius of r_tower_min and r_tower_max and an angle of angle_tower_min and angle_tower_max. Each transmitter has either has a randomized
     direction or is pointed in the [0,1] direction and has transmitter_antenna_patten with relative_tx_power. The transmitter at 
     The total power is calculated using a linear summation of powers for the wavelength using the friis formula. 
