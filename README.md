@@ -42,6 +42,6 @@ print(f"All powers are {power_list_rx}")
 print(f"The total power reaching the Rx is {total_power_rx}")
 ```
 # [Jupyter Example](./examples/los_simulation_example.ipynb)
-# [API Documentation](./documentation/index.html)
+# [API Documentation](https://sandersa-nist.github.io/los_simulation/documentation/los_simulation.html)
 
 ![image](./los_simulation/resources/example_scenario.gif)
